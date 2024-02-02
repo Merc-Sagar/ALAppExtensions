@@ -1,3 +1,27 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.GST.ReturnSettlement;
+
+using Microsoft.Bank.BankAccount;
+using Microsoft.Finance.Dimension;
+using Microsoft.Finance.GeneralLedger.Journal;
+using Microsoft.Finance.GeneralLedger.Posting;
+using Microsoft.Finance.GeneralLedger.Setup;
+using Microsoft.Finance.GST.Base;
+using Microsoft.Finance.GST.Distribution;
+using Microsoft.Finance.GST.Payments;
+using Microsoft.Finance.TaxEngine.TaxTypeHandler;
+using Microsoft.Foundation.AuditCodes;
+using Microsoft.Foundation.NoSeries;
+using Microsoft.Inventory.Journal;
+using Microsoft.Inventory.Ledger;
+using Microsoft.Inventory.Posting;
+using Microsoft.Purchases.History;
+using Microsoft.Purchases.Payables;
+using Microsoft.Purchases.Setup;
+
 codeunit 18318 "GST Settlement"
 {
     var
@@ -385,7 +409,7 @@ codeunit 18318 "GST Settlement"
             if VendorLedgerEntry.FindSet() then
                 repeat
                     VendorLedgerEntry.CalcFields("Remaining Amt. (LCY)");
-                    RemainingAmount := VendorLedgerEntry."Remaining Amt. (LCY)" - Abs(VendorLedgerEntry."Total TDS Including SHE CESS");
+                    RemainingAmount := VendorLedgerEntry."Remaining Amt. (LCY)" - Abs(VendorLedgerEntry."Total TDS Including SHE CESS" / VendorLedgerEntry."Original Currency Factor");
                     FillAppBufferInvoice(
                         VendorLedgerEntry."Document No.",
                         VendorLedgerEntry."Location GST Reg. No.",
@@ -505,7 +529,7 @@ codeunit 18318 "GST Settlement"
                 else
                     GSTLiabilityBuffer[1]."GST Base Amount" := DetailedGSTLedgerEntry[1]."GST Base Amount";
 
-                GSTLiabilityBuffer[1]."GST Amount" := GSTBaseValidation.RoundGSTPrecision(DetailedGSTLedgerEntry[1]."GST Amount" * CurrencyFactor);
+                GSTLiabilityBuffer[1]."GST Amount" := GSTBaseValidation.RoundGSTPrecisionThroughTaxComponent(DetailedGSTLedgerEntry[1]."GST Component Code", DetailedGSTLedgerEntry[1]."GST Amount" * CurrencyFactor);
 
                 if (DetailedGSTLedgerEntry[1]."Cr. & Liab. Adjustment Type" =
                     DetailedGSTLedgerEntry[1]."Cr. & Liab. Adjustment Type"::Generate) and
@@ -516,7 +540,7 @@ codeunit 18318 "GST Settlement"
                     else
                         GSTLiabilityBuffer[1]."GST Base Amount" := DetailedGSTLedgerEntry[1]."Remaining Base Amount";
 
-                    GSTLiabilityBuffer[1]."GST Amount" := GSTBaseValidation.RoundGSTPrecision(DetailedGSTLedgerEntry[1]."Remaining GST Amount" * CurrencyFactor);
+                    GSTLiabilityBuffer[1]."GST Amount" := GSTBaseValidation.RoundGSTPrecisionThroughTaxComponent(DetailedGSTLedgerEntry[1]."GST Component Code", DetailedGSTLedgerEntry[1]."Remaining GST Amount" * CurrencyFactor);
                 end;
 
                 if NatureOfAdj = NatureOfAdj::Reverse then begin
@@ -525,7 +549,7 @@ codeunit 18318 "GST Settlement"
                     else
                         GSTLiabilityBuffer[1]."Applied Base Amount" := DetailedGSTLedgerEntry[1]."AdjustmentBase Amount";
 
-                    GSTLiabilityBuffer[1]."Applied Amount" := GSTBaseValidation.RoundGSTPrecision(DetailedGSTLedgerEntry[1]."Adjustment Amount" * CurrencyFactor);
+                    GSTLiabilityBuffer[1]."Applied Amount" := GSTBaseValidation.RoundGSTPrecisionThroughTaxComponent(DetailedGSTLedgerEntry[1]."GST Component Code", DetailedGSTLedgerEntry[1]."Adjustment Amount" * CurrencyFactor);
                     if DetailedGSTLedgerEntry[1]."GST Credit" = DetailedGSTLedgerEntry[1]."GST Credit"::Availment then
                         GSTLiabilityBuffer[1]."Credit Amount" := GSTLiabilityBuffer[1]."Applied Amount";
                 end;
@@ -1823,8 +1847,8 @@ codeunit 18318 "GST Settlement"
         TempGSTPostingBuffer1[1]."GST Group Code" := '';
         TempGSTPostingBuffer1[1].Availment := DetailedGSTLedgerEntry."GST Credit" = DetailedGSTLedgerEntry."GST Credit"::Availment;
         TempGSTPostingBuffer1[1]."GST Group Type" := TempGSTPostingBuffer1[1]."GST Group Type"::Service;
-        TempGSTPostingBuffer1[1]."GST Base Amount" := GSTBaseValidation.RoundGSTPrecision(AppliedBaseAmount);
-        TempGSTPostingBuffer1[1]."GST Amount" := GSTBaseValidation.RoundGSTPrecision(AppliedAmount);
+        TempGSTPostingBuffer1[1]."GST Base Amount" := GSTBaseValidation.RoundGSTPrecisionThroughTaxComponent(DetailedGSTLedgerEntry."GST Component Code", AppliedBaseAmount);
+        TempGSTPostingBuffer1[1]."GST Amount" := GSTBaseValidation.RoundGSTPrecisionThroughTaxComponent(DetailedGSTLedgerEntry."GST Component Code", AppliedAmount);
         TempGSTPostingBuffer1[1]."GST %" := DetailedGSTLedgerEntry."GST %";
         TempGSTPostingBuffer1[1]."Normal Payment" := DetailedGSTLedgerEntry."Payment Type" = "Payment Type"::Normal;
         TempGSTPostingBuffer1[1]."Dimension Set ID" := DimensionSetID;

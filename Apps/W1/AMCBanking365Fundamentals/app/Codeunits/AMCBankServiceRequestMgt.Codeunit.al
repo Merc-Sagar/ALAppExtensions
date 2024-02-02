@@ -1,3 +1,15 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Bank.Payment;
+
+using Microsoft.Utilities;
+using System.Reflection;
+using System.Security.AccessControl;
+using System.Text;
+using System.Utilities;
+
 codeunit 20118 "AMC Bank Service Request Mgt."
 {
     //new procedure for handling http call - as we can't use Codeunit 1290, as functions are missing
@@ -49,7 +61,6 @@ codeunit 20118 "AMC Bank Service Request Mgt."
     end;
 
     procedure AddElement(VAR ParentElement: XmlElement; NameSpace: Text; ElementName: Text; ElementValue: Text; VAR CreatedChildElement: XmlElement; AttribName: Text; AttribNameSpace: Text; AttribValue: Text)
-    var
     begin
         CLEAR(CreatedChildElement);
         if (ElementValue <> '') then
@@ -96,7 +107,6 @@ codeunit 20118 "AMC Bank Service Request Mgt."
     end;
 
     local procedure SetHttpClientDefaults();
-    var
     begin
         if (GLBHeadersClientHttpClient.Contains('Accept')) THEN
             GLBHeadersClientHttpClient.Remove('Accept');
@@ -105,7 +115,6 @@ codeunit 20118 "AMC Bank Service Request Mgt."
     end;
 
     procedure SetHttpContentsDefaults(Var HeaderHttpRequestMessage: HttpRequestMessage);
-    var
     begin
         HeaderHttpRequestMessage.Content().GetHeaders(GLBHeadersContentHttp);
 
@@ -708,45 +717,6 @@ codeunit 20118 "AMC Bank Service Request Mgt."
     begin
     end;
 
-#if not CLEAN20
-#pragma warning disable AA0131
-    [Obsolete('This method is obsolete and it will be removed. Use GetFinstaXPath instead', '20.0')]
-    procedure GetFinstaXPath(ResponseNode: Text): Text
-    begin
-        exit(StrSubstNo(FinstaPathTxt, ResponseNode));
-    end;
-
-    [Obsolete('This method is obsolete and it will be removed. Use GetSysErrXPath instead', '20.0')]
-    procedure GetSysErrXPath(ResponseNode: Text): Text
-    begin
-        exit(StrSubstNo(SysErrPathTxt, ResponseNode));
-    end;
-
-    [Obsolete('This method is obsolete and it will be removed. Use GetConvErrXPath instead', '20.0')]
-    procedure GetConvErrXPath(ResponseNode: Text): Text
-    begin
-        exit(StrSubstNo(ConvErrPathTxt, ResponseNode));
-    end;
-
-    [Obsolete('This method is obsolete and it will be removed. Use GetDataXPath instead', '20.0')]
-    procedure GetDataXPath(ResponseNode: Text): Text
-    begin
-        exit(StrSubstNo(DataPathTxt, ResponseNode));
-    end;
-
-    [Obsolete('This method is obsolete and it will be removed. Use GetBankXPath instead', '20.0')]
-    procedure GetBankXPath(ResponseNode: Text): Text
-    begin
-        exit(StrSubstNo(BankPathTxt, ResponseNode));
-    end;
-
-    [Obsolete('This method is obsolete and it will be removed. Use GetJournalNoPath instead', '20.0')]
-    procedure GetJournalNoPath(ResponseNode: Text): Text
-    begin
-        exit(StrSubstNo(PackPathTxt, ResponseNode));
-    end;
-#pragma warning restore
-#endif
     procedure GetFinstaXPath(): Text
     begin
         exit(FinstaPathTxt);
@@ -776,7 +746,6 @@ codeunit 20118 "AMC Bank Service Request Mgt."
     begin
         exit(PackPathTxt);
     end;
-
 
     procedure GetHeaderXPath(): Text;
     begin

@@ -1,3 +1,16 @@
+namespace Microsoft.Inventory.InventoryForecast;
+
+using System.TestLibraries.Utilities;
+using System.AI;
+using Microsoft.Foundation.Period;
+using Microsoft.Purchases.Document;
+using Microsoft.Purchases.Vendor;
+using Microsoft.Inventory.Item;
+using Microsoft.Sales.Setup;
+using System.Environment.Configuration;
+using System.Threading;
+using System.Privacy;
+
 // ------------------------------------------------------------------------------------------------
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
@@ -909,11 +922,13 @@ codeunit 139540 "Sales Forecast Tests"
         MSSalesForecast: Record "MS - Sales Forecast";
         MSSalesForecastParameter: Record "MS - Sales Forecast Parameter";
         JobQueueEntry: Record "Job Queue Entry";
+        LibraryERM: Codeunit "Library - ERM";
         LibraryPermissions: Codeunit "Library - Permissions";
         LibraryNotificationMgt: Codeunit "Library - Notification Mgt.";
     begin
         LibraryPermissions.SetTestabilitySoftwareAsAService(true);
         LibraryNotificationMgt.DisableAllNotifications(); // do not get polluted by Image analysis notifications
+        LibraryERM.SetEnableDataCheck(false);
 
         MSSalesForecastSetup.DeleteAll();
         MSSalesForecast.DeleteAll();
@@ -1115,7 +1130,7 @@ codeunit 139540 "Sales Forecast Tests"
     end;
 
     [ModalPageHandler]
-    procedure CustomerConsentPageHandler(var ConsentMicrosoftConfirm: TestPage "Consent Microsoft Confirm")
+    procedure CustomerConsentPageHandler(var ConsentMicrosoftConfirm: TestPage "Consent Microsoft AI")
     begin
         ConsentMicrosoftConfirm.Accept.Invoke();
     end;

@@ -1,3 +1,5 @@
+namespace Microsoft.DataMigration.GP;
+
 page 40056 "GP Company Migration Settings"
 {
     ApplicationArea = All;
@@ -29,6 +31,10 @@ page 40056 "GP Company Migration Settings"
                 field("Global Dimension 2"; Rec."Global Dimension 2")
                 {
                     ToolTip = 'Specify the segment from Dynamics GP you would like as the second global dimension in Business Central.';
+                }
+                field("Migrate GL Module"; Rec."Migrate GL Module")
+                {
+                    ToolTip = 'Specify whether to migrate the GL module.';
                 }
                 field("Migrate Bank Module"; Rec."Migrate Bank Module")
                 {
@@ -149,6 +155,10 @@ page 40056 "GP Company Migration Settings"
                 field("Skip Posting Vendor Batches"; Rec."Skip Posting Vendor Batches")
                 {
                     ToolTip = 'Specify whether to disable auto posting Vendor batches.';
+                }
+                field("Skip Posting Item Batches"; Rec."Skip Posting Item Batches")
+                {
+                    ToolTip = 'Specify whether to disable auto posting Item batches.';
                 }
             }
         }

@@ -1,3 +1,5 @@
+namespace Microsoft.Integration.Shopify;
+
 /// <summary>
 /// Shpfy - Read Permissions (ID 30100).
 /// </summary>
@@ -11,6 +13,11 @@ permissionset 30100 "Shpfy - Read"
     IncludedPermissionSets = "Shpfy - Objects";
 
     Permissions =
+        tabledata "Shpfy Bulk Operation" = R,
+        tabledata "Shpfy Catalog" = R,
+        tabledata "Shpfy Catalog Price" = R,
+        tabledata "Shpfy Company" = R,
+        tabledata "Shpfy Company Location" = R,
         tabledata "Shpfy Credit Card Company" = R,
         tabledata "Shpfy Cue" = R,
         tabledata "Shpfy Customer" = R,
@@ -31,6 +38,7 @@ permissionset 30100 "Shpfy - Read"
         tabledata "Shpfy Order Fulfillment" = R,
         tabledata "Shpfy Order Header" = R,
         tabledata "Shpfy Order Line" = R,
+        tabledata "Shpfy Order Line Attribute" = R,
         tabledata "Shpfy Order Payment Gateway" = R,
         tabledata "Shpfy Order Risk" = R,
         tabledata "Shpfy Order Shipping Charges" = R,
@@ -43,11 +51,6 @@ permissionset 30100 "Shpfy - Read"
         tabledata "Shpfy Product" = R,
 #if not CLEAN22
         tabledata "Shpfy Province" = R,
-#endif
-#if not CLEAN21
-#pragma warning disable AL0432
-        tabledata "Shpfy Registered Store" = R,
-#pragma warning restore AL0432
 #endif
         tabledata "Shpfy Registered Store New" = R,
         tabledata "Shpfy Refund Header" = R,

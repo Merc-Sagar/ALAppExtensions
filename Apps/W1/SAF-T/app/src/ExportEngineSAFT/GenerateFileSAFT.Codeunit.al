@@ -1,3 +1,43 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.AuditFileExport;
+
+using Microsoft.Bank.BankAccount;
+using Microsoft.Finance.Dimension;
+using Microsoft.Finance.GeneralLedger.Account;
+using Microsoft.Finance.GeneralLedger.Journal;
+using Microsoft.Finance.GeneralLedger.Ledger;
+using Microsoft.Finance.GeneralLedger.Setup;
+using Microsoft.Finance.VAT.Ledger;
+using Microsoft.Finance.VAT.Setup;
+using Microsoft.FixedAssets.Depreciation;
+using Microsoft.FixedAssets.FixedAsset;
+using Microsoft.FixedAssets.Ledger;
+using Microsoft.Foundation.AuditCodes;
+using Microsoft.Foundation.Company;
+using Microsoft.Foundation.Enums;
+using Microsoft.Foundation.UOM;
+using Microsoft.HumanResources.Employee;
+using Microsoft.Inventory.Item;
+using Microsoft.Inventory.Item.Attribute;
+using Microsoft.Inventory.Item.Catalog;
+using Microsoft.Inventory.Ledger;
+using Microsoft.Inventory.Location;
+using Microsoft.Projects.Resources.Resource;
+using Microsoft.Purchases.Document;
+using Microsoft.Purchases.History;
+using Microsoft.Purchases.Payables;
+using Microsoft.Purchases.Vendor;
+using Microsoft.Sales.Customer;
+using Microsoft.Sales.Document;
+using Microsoft.Sales.History;
+using Microsoft.Sales.Receivables;
+using System.Environment;
+using System.Telemetry;
+using System.Utilities;
+
 codeunit 5289 "Generate File SAF-T"
 {
     Access = Internal;
@@ -54,17 +94,17 @@ codeunit 5289 "Generate File SAF-T"
         ExportHeader(AuditFileExportHeader);
 
         case AuditFileExportLine."Data Class" of
-            "Audit File Export Data Class"::MasterData:
+            Enum::"Audit File Export Data Class"::MasterData:
                 begin
                     ExportMasterFiles(AuditFileExportHeader);
                     XmlHelper.AfterAppendXmlNode('MasterFiles');
                 end;
-            "Audit File Export Data Class"::GeneralLedgerEntries:
+            Enum::"Audit File Export Data Class"::GeneralLedgerEntries:
                 begin
-                    ExportGeneralLedgerEntries(AuditFileExportHeader);
+                    ExportGeneralLedgerEntries(AuditFileExportHeader, AuditFileExportLine);
                     XmlHelper.AfterAppendXmlNode('GeneralLedgerEntries');
                 end;
-            "Audit File Export Data Class"::SourceDocuments:
+            Enum::"Audit File Export Data Class"::SourceDocuments:
                 begin
                     ExportSourceDocuments(AuditFileExportHeader);
                     XmlHelper.AfterAppendXmlNode('SourceDocuments');
@@ -83,7 +123,7 @@ codeunit 5289 "Generate File SAF-T"
     var
         AuditExportDataTypeSetup: Record "Audit Export Data Type Setup";
     begin
-        AuditExportDataTypeSetup.SetRange("Audit File Export Format", "Audit File Export Format"::SAFT);
+        AuditExportDataTypeSetup.SetRange("Audit File Export Format", Enum::"Audit File Export Format"::SAFT);
         AuditExportDataTypeSetup.SetRange("Export Enabled", true);
         if AuditExportDataTypeSetup.IsEmpty() then
             exit;
@@ -94,25 +134,25 @@ codeunit 5289 "Generate File SAF-T"
         repeat
             XmlHelper.SetNodeModificationAllowed(AuditExportDataTypeSetup."Export Data Type");
             case AuditExportDataTypeSetup."Export Data Type" of
-                "Audit File Export Data Type"::GeneralLedgerAccounts:
+                Enum::"Audit File Export Data Type"::GeneralLedgerAccounts:
                     ExportGeneralLedgerAccounts(AuditFileExportHeader);
-                "Audit File Export Data Type"::Customers:
+                Enum::"Audit File Export Data Type"::Customers:
                     ExportCustomers(AuditFileExportHeader);
-                "Audit File Export Data Type"::Suppliers:
+                Enum::"Audit File Export Data Type"::Suppliers:
                     ExportVendors(AuditFileExportHeader);
-                "Audit File Export Data Type"::TaxTable:
+                Enum::"Audit File Export Data Type"::TaxTable:
                     ExportTaxTable();
-                "Audit File Export Data Type"::UOMTable:
+                Enum::"Audit File Export Data Type"::UOMTable:
                     ExportUOMTable();
-                "Audit File Export Data Type"::AnalysisTypeTable:
+                Enum::"Audit File Export Data Type"::AnalysisTypeTable:
                     ExportAnalysisTypeTable();
-                "Audit File Export Data Type"::MovementTypeTable:
+                Enum::"Audit File Export Data Type"::MovementTypeTable:
                     ExportMovementTypeTable();
-                "Audit File Export Data Type"::Products:
+                Enum::"Audit File Export Data Type"::Products:
                     ExportProducts();
-                "Audit File Export Data Type"::PhysicalStock:
+                Enum::"Audit File Export Data Type"::PhysicalStock:
                     ExportPhysicalStock(AuditFileExportHeader);
-                "Audit File Export Data Type"::Assets:
+                Enum::"Audit File Export Data Type"::Assets:
                     ExportAssets(AuditFileExportHeader);
             end;
             XmlHelper.AfterAppendXmlNode(Format(AuditExportDataTypeSetup."Export Data Type"));
@@ -125,7 +165,7 @@ codeunit 5289 "Generate File SAF-T"
     var
         AuditExportDataTypeSetup: Record "Audit Export Data Type Setup";
     begin
-        AuditExportDataTypeSetup.SetRange("Audit File Export Format", "Audit File Export Format"::SAFT);
+        AuditExportDataTypeSetup.SetRange("Audit File Export Format", Enum::"Audit File Export Format"::SAFT);
         AuditExportDataTypeSetup.SetRange("Export Enabled", true);
         if AuditExportDataTypeSetup.IsEmpty() then
             exit;
@@ -136,15 +176,15 @@ codeunit 5289 "Generate File SAF-T"
         repeat
             XmlHelper.SetNodeModificationAllowed(AuditExportDataTypeSetup."Export Data Type");
             case AuditExportDataTypeSetup."Export Data Type" of
-                "Audit File Export Data Type"::SalesInvoices:
+                Enum::"Audit File Export Data Type"::SalesInvoices:
                     ExportSalesInvoicesAndCreditMemos(AuditFileExportHeader);
-                "Audit File Export Data Type"::PurchaseInvoices:
+                Enum::"Audit File Export Data Type"::PurchaseInvoices:
                     ExportPurchaseInvoicesAndCreditMemos(AuditFileExportHeader);
-                "Audit File Export Data Type"::Payments:
+                Enum::"Audit File Export Data Type"::Payments:
                     ExportPayments(AuditFileExportHeader);
-                "Audit File Export Data Type"::MovementOfGoods:
+                Enum::"Audit File Export Data Type"::MovementOfGoods:
                     ExportMovementOfGoods(AuditFileExportHeader);
-                "Audit File Export Data Type"::AssetTransactions:
+                Enum::"Audit File Export Data Type"::AssetTransactions:
                     ExportAssetTransactions(AuditFileExportHeader);
             end;
             XmlHelper.AfterAppendXmlNode(Format(AuditExportDataTypeSetup."Export Data Type"));
@@ -201,7 +241,7 @@ codeunit 5289 "Generate File SAF-T"
 
         XmlHelper.SetCurrentRec(CompanyInformation);
         XmlHelper.AddNewXmlNode('Company', '');
-        XmlHelper.AppendXmlNode('RegistrationNumber', CompanyInformation."Registration No.");
+        XmlHelper.AppendXmlNode('RegistrationNumber', CompanyInformation."VAT Registration No.");
         XmlHelper.AppendXmlNode('Name', SAFTDataMgt.GetSAFTMiddle2Text(CompanyInformation.Name));
         ExportAddress(
             AddressTxt, CombineWithSpace(CompanyInformation.Address, CompanyInformation."Address 2"), CompanyInformation.City, CompanyInformation."Post Code",
@@ -543,15 +583,15 @@ codeunit 5289 "Generate File SAF-T"
         Vendor.SetRange("Date Filter", 0D, ClosingDate(AuditFileExportHeader."Starting Date" - 1));
         Vendor.CalcFields("Net Change (LCY)");
         if Vendor."Net Change (LCY)" > 0 then
-            OpeningDebitBalance := Vendor."Net Change (LCY)"
+            OpeningCreditBalance := Vendor."Net Change (LCY)"
         else
-            OpeningCreditBalance := -Vendor."Net Change (LCY)";
+            OpeningDebitBalance := -Vendor."Net Change (LCY)";
         Vendor.SetRange("Date Filter", 0D, ClosingDate(AuditFileExportHeader."Ending Date"));
         Vendor.CalcFields("Net Change (LCY)");
         if Vendor."Net Change (LCY)" > 0 then
-            ClosingDebitBalance := Vendor."Net Change (LCY)"
+            ClosingCreditBalance := Vendor."Net Change (LCY)"
         else
-            ClosingCreditBalance := -Vendor."Net Change (LCY)";
+            ClosingDebitBalance := -Vendor."Net Change (LCY)";
 
         XmlHelper.SetCurrentRec(Vendor);
         XmlHelper.AddNewXmlNode('Supplier', '');
@@ -1075,7 +1115,7 @@ codeunit 5289 "Generate File SAF-T"
         XmlHelper.FinalizeXmlNode();
     end;
 
-    local procedure ExportGeneralLedgerEntries(var AuditFileExportHeader: Record "Audit File Export Header")
+    local procedure ExportGeneralLedgerEntries(var AuditFileExportHeader: Record "Audit File Export Header"; AuditFileExportLine: Record "Audit File Export Line")
     var
         GLEntry: Record "G/L Entry";
         SourceCodeSAFT: Record "Source Code SAF-T";
@@ -1085,18 +1125,17 @@ codeunit 5289 "Generate File SAF-T"
         TotalCount: Integer;
         NumberOfEntries: Integer;
     begin
-        GLEntry.SetRange("Posting Date", AuditFileExportHeader."Starting Date", AuditFileExportHeader."Ending Date");
+        GLEntry.SetRange("Posting Date", AuditFileExportLine."Starting Date", AuditFileExportLine."Ending Date");
         if GLEntry.IsEmpty() then
             exit;
 
         UpdateDataSourceInProgressDialog(ExportingGLEntriesTxt);
         TotalCount := GLEntry.Count();
 
-        GLEntry.CalcSums("Debit Amount", "Credit Amount");
         XmlHelper.AddNewXmlNode('GeneralLedgerEntries', '');
-        XmlHelper.SaveCurrXmlElement();                         // NumberOfEntries
-        XmlHelper.AppendXmlNode('TotalDebit', SAFTDataMgt.GetSAFTMonetaryDecimal(GLEntry."Debit Amount"));
-        XmlHelper.AppendXmlNode('TotalCredit', SAFTDataMgt.GetSAFTMonetaryDecimal(GLEntry."Credit Amount"));
+        XmlHelper.AppendXMLNode('NumberOfEntries', FormatAmount(AuditFileExportHeader."Number of G/L Entries"));
+        XmlHelper.AppendXMLNode('TotalDebit', FormatAmount(AuditFileExportHeader."Total G/L Entry Debit"));
+        XmlHelper.AppendXMLNode('TotalCredit', FormatAmount(AuditFileExportHeader."Total G/L Entry Credit"));
 
         if SourceCodeSAFT.FindSet() then
             repeat
@@ -1116,26 +1155,26 @@ codeunit 5289 "Generate File SAF-T"
                     SourceCodeSAFT.Description := MappingHelperSAFT.GetAssortedSourceCodeSAFTDescr();
                 end;
 
-                ExportGLEntriesBySourceCode(SourceCodeSAFT, SourceCodeFilter, AuditFileExportHeader, NumberOfEntries, TotalCount);
+                ExportGLEntriesBySourceCode(SourceCodeSAFT, SourceCodeFilter, AuditFileExportHeader, AuditFileExportLine, NumberOfEntries, TotalCount);
             until SourceCodeSAFT.Next() = 0;
 
-        XmlHelper.AppendToSavedXMLNode('NumberOfEntries', Format(NumberOfEntries));
         XmlHelper.FinalizeXmlNode();
     end;
 
-    local procedure ExportGLEntriesBySourceCode(SourceCodeSAFT: Record "Source Code SAF-T"; SourceCodeFilter: Text; var AuditFileExportHeader: Record "Audit File Export Header"; var NumberOfEntries: Integer; TotalCount: Integer)
+    local procedure ExportGLEntriesBySourceCode(SourceCodeSAFT: Record "Source Code SAF-T"; SourceCodeFilter: Text; var AuditFileExportHeader: Record "Audit File Export Header"; AuditFileExportLine: Record "Audit File Export Line"; var NumberOfEntries: Integer; TotalCount: Integer)
     var
         GLEntry: Record "G/L Entry";
         GLEntrySAFT: Query "G/L Entry SAF-T";
         CurrencyCode: Code[10];
         ExchangeRate: Decimal;
-        PrevTransactionNo: Integer;
+        PrevTransactionID: Text;
+        CurrentTransactionID: Text;
         GLEntriesExist: Boolean;
     begin
         if SourceCodeFilter = '' then
             exit;
 
-        GLEntrySAFT.SetFilter(Posting_Date_Filter, '%1..%2', AuditFileExportHeader."Starting Date", AuditFileExportHeader."Ending Date");
+        GLEntrySAFT.SetFilter(Posting_Date_Filter, '%1..%2', AuditFileExportLine."Starting Date", AuditFileExportLine."Ending Date");
         GLEntrySAFT.SetFilter(Source_Code, SourceCodeFilter);
         GLEntrySAFT.Open();
         GLEntriesExist := GLEntrySAFT.Read();       // read the first row
@@ -1147,38 +1186,38 @@ codeunit 5289 "Generate File SAF-T"
         XmlHelper.AppendXmlNode('Description', SourceCodeSAFT.Description);
         XmlHelper.AppendXmlNode('Type', SourceCodeSAFT.Code);
 
-        PrevTransactionNo := 0;
         repeat
             NumberOfEntries += 1;
             UpdateCountInProgressDialog(NumberOfEntries, TotalCount);
             CopyQueryFieldsToGLEntry(GLEntrySAFT, GLentry);
 
-            if GLEntry."Transaction No." <> PrevTransactionNo then begin
-                if PrevTransactionNo <> 0 then
+            CurrentTransactionID := GetSAFTTransactionID(GLEntry);
+            if CurrentTransactionID <> PrevTransactionID then begin
+                if PrevTransactionID <> '' then
                     XmlHelper.FinalizeXmlNode();        // close previous Transaction node
-                ExportGLEntryTransactionInfo(GLEntry);
-                PrevTransactionNo := GLEntry."Transaction No.";
+                ExportGLEntryTransactionInfo(GLEntry, CurrentTransactionID);
+                PrevTransactionID := GetSAFTTransactionID(GLEntry);
                 SAFTDataMgt.GetFCYData(CurrencyCode, ExchangeRate, GLEntry, AuditFileExportHeader."Export Currency Information");
             end;
 
             ExportGLEntryLine(GLEntry, CurrencyCode, ExchangeRate);
         until not GLEntrySAFT.Read();
 
-        if PrevTransactionNo <> 0 then
+        if PrevTransactionID <> '' then
             XmlHelper.FinalizeXmlNode();        // close last Transaction node
 
         if SourceCodeSAFT.Code <> '' then
             XmlHelper.FinalizeXmlNode();                // close Journal node
     end;
 
-    local procedure ExportGLEntryTransactionInfo(GLEntry: Record "G/L Entry")
+    local procedure ExportGLEntryTransactionInfo(GLEntry: Record "G/L Entry"; TransactionID: Text)
     var
         SystemEntryDate: Date;
         TransactionTypeValue: Text;
     begin
         XmlHelper.SetCurrentRec(GLEntry);
         XmlHelper.AddNewXmlNode('Transaction', '');
-        XmlHelper.AppendXmlNode('TransactionID', Format(GLEntry."Document No."));
+        XmlHelper.AppendXmlNode('TransactionID', TransactionID);
         XmlHelper.AppendXmlNode('Period', Format(Date2DMY(GLEntry."Posting Date", 2)));
         XmlHelper.AppendXmlNode('PeriodYear', Format(Date2DMY(GLEntry."Posting Date", 3)));
         XmlHelper.AppendXmlNode('TransactionDate', FormatDate(GLEntry."Document Date"));
@@ -1507,7 +1546,7 @@ codeunit 5289 "Generate File SAF-T"
             ExchangeRate := 1;
 
         XmlHelper.AppendXmlNode('BatchID', Format(CustLedgerEntry."Transaction No."));
-        XmlHelper.AppendXmlNode('TransactionID', Format(CustLedgerEntry."Transaction No."));
+        XmlHelper.AppendXmlNode('TransactionID', GetSAFTTransactionID(CustLedgerEntry));
 
         AppliedCreditMemoNos := SAFTDataMgt.GetAppliedSalesDocuments(CustLedgerEntry."Entry No.", "Gen. Journal Document Type"::"Credit Memo");
 
@@ -1668,7 +1707,7 @@ codeunit 5289 "Generate File SAF-T"
             ExchangeRate := 1;
 
         XmlHelper.AppendXmlNode('BatchID', Format(CustLedgerEntry."Transaction No."));
-        XmlHelper.AppendXmlNode('TransactionID', Format(CustLedgerEntry."Transaction No."));
+        XmlHelper.AppendXmlNode('TransactionID', GetSAFTTransactionID(CustLedgerEntry));
 
         SalesCrMemoLine.SetLoadFields(
             Type, "Dimension Set ID", "No.", Description, Quantity, "Unit of Measure Code", "Qty. per Unit of Measure", "Unit Price",
@@ -1869,7 +1908,7 @@ codeunit 5289 "Generate File SAF-T"
             ExchangeRate := 1;
 
         XmlHelper.AppendXmlNode('BatchID', Format(VendorLedgerEntry."Transaction No."));
-        XmlHelper.AppendXmlNode('TransactionID', Format(VendorLedgerEntry."Transaction No."));
+        XmlHelper.AppendXmlNode('TransactionID', GetSAFTTransactionID(VendorLedgerEntry));
 
         AppliedCreditMemoNos := SAFTDataMgt.GetAppliedPurchaseCreditMemos(VendorLedgerEntry."Entry No.", "Gen. Journal Document Type"::"Credit Memo");
 
@@ -2038,7 +2077,7 @@ codeunit 5289 "Generate File SAF-T"
             ExchangeRate := 1;
 
         XmlHelper.AppendXmlNode('BatchID', Format(VendorLedgerEntry."Transaction No."));
-        XmlHelper.AppendXmlNode('TransactionID', Format(VendorLedgerEntry."Transaction No."));
+        XmlHelper.AppendXmlNode('TransactionID', GetSAFTTransactionID(VendorLedgerEntry));
 
         PurchCrMemoLine.SetLoadFields(
             Type, "Dimension Set ID", "No.", Description, Quantity, "Unit of Measure Code", "Qty. per Unit of Measure", "Direct Unit Cost",
@@ -2243,7 +2282,7 @@ codeunit 5289 "Generate File SAF-T"
 
         XmlHelper.AppendXmlNode('Period', Format(Date2DMY(CustLedgerEntry."Posting Date", 2)));
         XmlHelper.AppendXmlNode('PeriodYear', Format(Date2DMY(CustLedgerEntry."Posting Date", 3)));
-        XmlHelper.AppendXmlNode('TransactionID', Format(CustLedgerEntry."Document No."));
+        XmlHelper.AppendXmlNode('TransactionID', GetSAFTTransactionID(CustLedgerEntry));
         XmlHelper.AppendXmlNode('TransactionDate', FormatDate(CustLedgerEntry."Document Date"));
         XmlHelper.AppendXmlNode('PaymentMethod', SAFTDataMgt.GetSAFTCodeText(PaymentMethodCode));
         XmlHelper.AppendXmlNode('Description', CustLedgerEntry.Description);
@@ -2334,7 +2373,7 @@ codeunit 5289 "Generate File SAF-T"
 
         XmlHelper.AppendXmlNode('Period', Format(Date2DMY(VendorLedgerEntry."Posting Date", 2)));
         XmlHelper.AppendXmlNode('PeriodYear', Format(Date2DMY(VendorLedgerEntry."Posting Date", 3)));
-        XmlHelper.AppendXmlNode('TransactionID', Format(VendorLedgerEntry."Document No."));
+        XmlHelper.AppendXmlNode('TransactionID', GetSAFTTransactionID(VendorLedgerEntry));
         XmlHelper.AppendXmlNode('TransactionDate', FormatDate(VendorLedgerEntry."Document Date"));
         XmlHelper.AppendXmlNode('PaymentMethod', SAFTDataMgt.GetSAFTCodeText(PaymentMethodCode));
         XmlHelper.AppendXmlNode('Description', VendorLedgerEntry.Description);
@@ -2794,6 +2833,26 @@ codeunit 5289 "Generate File SAF-T"
     begin
         if GuiAllowed() then
             ProgressDialog.Update(Number, NewText);
+    end;
+
+    local procedure GetSAFTTransactionID(var GLEntry: Record "G/L Entry"): Text
+    begin
+        exit(GetSAFTTransactionID(GLEntry."Document No.", GLEntry."Posting Date"));
+    end;
+
+    local procedure GetSAFTTransactionID(var CustomerLedgerEntry: Record "Cust. Ledger Entry"): Text
+    begin
+        exit(GetSAFTTransactionID(CustomerLedgerEntry."Document No.", CustomerLedgerEntry."Posting Date"));
+    end;
+
+    local procedure GetSAFTTransactionID(var VendorLedgerEntry: Record "Vendor Ledger Entry"): Text
+    begin
+        exit(GetSAFTTransactionID(VendorLedgerEntry."Document No.", VendorLedgerEntry."Posting Date"));
+    end;
+
+    local procedure GetSAFTTransactionID(DocNo: Code[20]; PostingDate: Date): Text
+    begin
+        exit(DocNo + Format(PostingDate, 0, '<Day,2><Month,2><Year,2>'));
     end;
 
     [IntegrationEvent(false, false)]

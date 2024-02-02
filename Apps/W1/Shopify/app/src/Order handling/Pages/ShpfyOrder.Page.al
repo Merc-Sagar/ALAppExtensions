@@ -1,3 +1,13 @@
+namespace Microsoft.Integration.Shopify;
+
+#if not CLEAN22
+using System.IO;
+#endif
+using Microsoft.Inventory.Item;
+using Microsoft.Sales.Customer;
+using Microsoft.Sales.Document;
+using Microsoft.Warehouse.Setup;
+
 /// <summary>
 /// Page Shpfy Order (ID 30113).
 /// </summary>
@@ -11,6 +21,7 @@ page 30113 "Shpfy Order"
     RefreshOnActivate = true;
     SourceTable = "Shpfy Order Header";
     UsageCategory = None;
+
     layout
     {
         area(content)
@@ -41,7 +52,6 @@ page 30113 "Shpfy Order"
                     ApplicationArea = All;
                     Caption = 'Customer Template Code';
                     Lookup = true;
-                    ShowMandatory = true;
                     TableRelation = "Config. Template Header".Code where("Table Id" = const(18));
                     ToolTip = 'Specifies the code for the template to create a new customer.';
                     ObsoleteReason = 'Replaced by Customer Templ. Code';
@@ -55,7 +65,6 @@ page 30113 "Shpfy Order"
                     ApplicationArea = All;
                     Caption = 'Customer Template Code';
                     Lookup = true;
-                    ShowMandatory = true;
                     TableRelation = "Customer Templ.".Code;
                     ToolTip = 'Specifies the code for the template to create a new customer.';
 #if not CLEAN22
@@ -81,7 +90,7 @@ page 30113 "Shpfy Order"
                 field(Closed; Rec.Closed)
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Specified if the Shopify order is archived by D365BC.';
+                    ToolTip = 'Specifies if the Shopify order is archived by D365BC.';
                 }
                 group(SellTo)
                 {
@@ -226,6 +235,13 @@ page 30113 "Shpfy Order"
                     ApplicationArea = All;
                     Editable = false;
                     ToolTip = 'Specifies the order''s status in terms of fulfilled line items. Valid values are: fulfilled, in progress, open, pending fulfillment, restocked, unfulfilled, partially fulfilled.';
+                }
+                field(ReturnStatus; Rec."Return Status")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                    Visible = false;
+                    ToolTip = 'Specifies the status or returns assocuated with the order. Valid values are: inspection complete, in progress, no return, returned, return failed, return requested.';
                 }
                 field(SalesOrderNo; Rec."Sales Order No.")
                 {
@@ -491,6 +507,13 @@ page 30113 "Shpfy Order"
                 SubPageLink = "No." = field("Item No.");
                 Visible = false;
             }
+            part(OrderLineAttributes; "Shpfy Order Lines Attributes")
+            {
+                ApplicationArea = all;
+                Provider = ShopifyOrderLines;
+                Caption = 'Order Line Attributes';
+                SubPageLink = "Order Id" = field("Shopify Order Id"), "Order Line Id" = field(SystemId);
+            }
             systempart(Links; Links)
             {
                 ApplicationArea = All;
@@ -576,9 +599,82 @@ page 30113 "Shpfy Order"
                     begin
                         CurrPage.Update(true);
                         Shop.Get(Rec."Shop Code");
-                        OrderMapping.MapHeaderFields(Rec, Shop, true);
+                        if not Rec.B2B then
+                            OrderMapping.MapHeaderFields(Rec, Shop, true)
+                        else
+                            OrderMapping.MapB2BHeaderFields(Rec, Shop, true);
                         CurrPage.Update(false);
                     end;
+                }
+                action(MarkAsPaid)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Mark as Paid';
+                    Image = Payment;
+                    Promoted = true;
+                    PromotedCategory = Process;
+                    PromotedIsBig = true;
+                    PromotedOnly = true;
+                    Enabled = not Rec."Fully Paid";
+                    ToolTip = 'Mark the Shopify order as paid.';
+
+                    trigger OnAction()
+                    var
+                        OrdersApi: Codeunit "Shpfy Orders API";
+                        ErrorInfo: ErrorInfo;
+                    begin
+                        if OrdersApi.MarkAsPaid(Rec."Shopify Order Id", Rec."Shop Code") then
+                            Message(MarkAsPaidMsg)
+                        else begin
+                            ErrorInfo.Message := MarkAsPaidFailedErr;
+                            ErrorInfo.AddNavigationAction(LogEntriesLbl);
+                            ErrorInfo.PageNo(Page::"Shpfy Log Entries");
+                            Error(ErrorInfo);
+                        end;
+                    end;
+                }
+                action(CancelOrder)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Cancel Order';
+                    Image = Cancel;
+                    Promoted = true;
+                    PromotedCategory = Process;
+                    PromotedIsBig = true;
+                    PromotedOnly = true;
+                    ToolTip = 'Cancel the Shopify order.';
+
+                    trigger OnAction()
+                    var
+                        CancelOrder: Page "Shpfy Cancel Order";
+                        ErrorInfo: ErrorInfo;
+                    begin
+                        CancelOrder.LookupMode := true;
+                        CancelOrder.SetRec(Rec);
+                        CancelOrder.RunModal();
+                        if CancelOrder.GetResult() then
+                            Message(OrderCancelledMsg)
+                        else begin
+                            ErrorInfo.Message := OrderCancelFailedErr;
+                            ErrorInfo.AddNavigationAction(LogEntriesLbl);
+                            ErrorInfo.PageNo(Page::"Shpfy Log Entries");
+                            Error(ErrorInfo);
+                        end;
+                    end;
+                }
+                action(ResolveOrderProcessingConflicts)
+                {
+                    ApplicationArea = All;
+                    Enabled = Rec."Has Order State Error";
+                    Caption = 'Resolve conflicts';
+                    ToolTip = 'An order from Shopify will be marked with conflicts if it has been already processed in Business Central and new changes are detected in Shopify. In this page you can inspect the changes and resolve the conflicts appropriately.';
+                    RunObject = page "Shpfy Resolve Order Conflicts";
+                    Image = TaskList;
+                    RunPageOnRec = true;
+                    Promoted = true;
+                    PromotedCategory = Process;
+                    PromotedIsBig = true;
+                    PromotedOnly = true;
                 }
             }
         }
@@ -639,6 +735,20 @@ page 30113 "Shpfy Order"
                 RunPageLink = "Shopify Order Id" = field("Shopify Order Id");
                 RunPageMode = View;
                 ToolTip = 'View an array of fulfillments associated with the Shopify Order.';
+            }
+            action(FulfillmentOrders)
+            {
+                ApplicationArea = All;
+                Caption = 'Fulfillment Orders';
+                Image = ShipmentLines;
+                Promoted = true;
+                PromotedCategory = Category4;
+                PromotedIsBig = true;
+                PromotedOnly = true;
+                RunObject = Page "Shpfy Fulfillment Orders";
+                RunPageLink = "Shopify Order Id" = field("Shopify Order Id");
+                RunPageMode = View;
+                ToolTip = 'View an array of fulfillment orders associated with the Shopify Order.';
             }
             action(SalesOrder)
             {
@@ -770,6 +880,11 @@ page 30113 "Shpfy Order"
 
     var
         CreateShopifyMsg: Label 'Create sales document from Shopify order %1?', Comment = '%1 = Order No.';
+        MarkAsPaidMsg: Label 'The order has been marked as paid.';
+        MarkAsPaidFailedErr: Label 'The order could not be marked as paid. You can see the error message from Shopify Log Entries.';
+        OrderCancelledMsg: Label 'Order has been cancelled successfully.';
+        OrderCancelFailedErr: Label 'The order could not be cancelled. You can see the error message from Shopify Log Entries.';
+        LogEntriesLbl: Label 'Log Entries';
         WorkDescription: Text;
 #if not CLEAN22
         NewTemplatesEnabled: Boolean;

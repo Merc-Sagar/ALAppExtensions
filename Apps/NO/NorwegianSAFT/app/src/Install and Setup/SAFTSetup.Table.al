@@ -1,3 +1,12 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.AuditFileExport;
+
+using Microsoft.Finance.VAT.Reporting;
+using Microsoft.Finance.VAT.Setup;
+
 table 10670 "SAF-T Setup"
 {
     DataClassification = CustomerContent;
@@ -13,10 +22,9 @@ table 10670 "SAF-T Setup"
         {
             DataClassification = CustomerContent;
             Caption = 'Dimension No. Series Code';
-            TableRelation = "No. Series";
-            ObsoleteState = Pending;
+            ObsoleteState = Removed;
             ObsoleteReason = 'Replaced with Dimension No.';
-            ObsoleteTag = '17.0';
+            ObsoleteTag = '24.0';
         }
         field(3; "Last Tax Code"; Integer)
         {

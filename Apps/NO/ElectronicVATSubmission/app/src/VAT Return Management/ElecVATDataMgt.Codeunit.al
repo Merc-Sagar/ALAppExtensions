@@ -1,3 +1,14 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.VAT.Reporting;
+
+using Microsoft.Finance.VAT.Calculation;
+using Microsoft.Finance.VAT.Setup;
+using Microsoft.Foundation.Company;
+using Microsoft.Foundation.Enums;
+
 codeunit 10683 "Elec. VAT Data Mgt."
 {
     var
@@ -192,7 +203,12 @@ codeunit 10683 "Elec. VAT Data Mgt."
 
     procedure IsReverseChargeVATCode(VATCode: Code[20]): Boolean
     begin
-        exit(VATCode in ['81', '83', '86', '88', '91'])
+        exit(VATCode in ['81', '86', '91'])
+    end;
+
+    procedure IsVATCodeWithDeductiblePart(VATCode: Code[20]): Boolean
+    begin
+        exit(VATCode in ['1', '11', '13'])
     end;
 
     procedure GetDigitVATRegNo(): Text[20]

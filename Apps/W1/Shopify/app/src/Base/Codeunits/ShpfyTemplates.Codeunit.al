@@ -1,4 +1,12 @@
 #if not CLEAN22
+namespace Microsoft.Integration.Shopify;
+
+using System.Environment.Configuration;
+using System.IO;
+using Microsoft.Inventory.Item;
+using Microsoft.Sales.Customer;
+using Microsoft.Foundation.Navigate;
+
 codeunit 30213 "Shpfy Templates" implements "Feature Data Update"
 {
     Access = Internal;

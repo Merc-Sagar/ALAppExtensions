@@ -1,3 +1,13 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.AuditFileExport;
+
+using Microsoft.Finance.GeneralLedger.Ledger;
+using System.Reflection;
+using System.Utilities;
+
 codeunit 5281 "Audit Data Handling SAF-T" implements "Audit File Export Data Handling"
 {
     Access = Public;
@@ -12,7 +22,8 @@ codeunit 5281 "Audit Data Handling SAF-T" implements "Audit File Export Data Han
         AuditFileExportSetup: Record "Audit File Export Setup";
         CreateStandardDataSAFT: Interface CreateStandardDataSAFT;
     begin
-        AuditFileExportSetup.Get();
+        if not AuditFileExportSetup.Get() then
+            exit(false);
         CreateStandardDataSAFT := AuditFileExportSetup."SAF-T Modification";
         exit(CreateStandardDataSAFT.LoadStandardAccounts(StandardAccountType));
     end;
@@ -27,19 +38,19 @@ codeunit 5281 "Audit Data Handling SAF-T" implements "Audit File Export Data Han
         AuditFileExportLine.DeleteAll(true);
 
         // Master data
-        if IsDataClassEnabled("Audit File Export Data Class"::MasterData) then
+        if IsDataClassEnabled(Enum::"Audit File Export Data Class"::MasterData) then
             AuditFileExportMgt.InsertAuditFileExportLine(
-                AuditFileExportLine, LineNo, AuditFileExportHeader.ID, "Audit File Export Data Class"::MasterData,
+                AuditFileExportLine, LineNo, AuditFileExportHeader.ID, Enum::"Audit File Export Data Class"::MasterData,
                 MasterDataTxt, AuditFileExportHeader."Starting Date", AuditFileExportHeader."Ending Date");
 
         // General ledger entries
-        if IsDataClassEnabled("Audit File Export Data Class"::GeneralLedgerEntries) then
+        if IsDataClassEnabled(Enum::"Audit File Export Data Class"::GeneralLedgerEntries) then
             InsertExportLineForGLEntries(AuditFileExportHeader, LineNo);
 
         // Source documents
-        if IsDataClassEnabled("Audit File Export Data Class"::SourceDocuments) then
+        if IsDataClassEnabled(Enum::"Audit File Export Data Class"::SourceDocuments) then
             AuditFileExportMgt.InsertAuditFileExportLine(
-                AuditFileExportLine, LineNo, AuditFileExportHeader.ID, "Audit File Export Data Class"::SourceDocuments,
+                AuditFileExportLine, LineNo, AuditFileExportHeader.ID, Enum::"Audit File Export Data Class"::SourceDocuments,
                 SourceDocumentsTxt, AuditFileExportHeader."Starting Date", AuditFileExportHeader."Ending Date");
     end;
 
@@ -70,7 +81,8 @@ codeunit 5281 "Audit Data Handling SAF-T" implements "Audit File Export Data Han
         AuditFileExportSetup: Record "Audit File Export Setup";
         LoadStandardDataSAFT: Interface CreateStandardDataSAFT;
     begin
-        AuditFileExportSetup.Get();
+        if not AuditFileExportSetup.Get() then
+            exit;
         LoadStandardDataSAFT := AuditFileExportSetup."SAF-T Modification";
         LoadStandardDataSAFT.InitAuditExportDataTypeSetup();
     end;
@@ -87,7 +99,7 @@ codeunit 5281 "Audit Data Handling SAF-T" implements "Audit File Export Data Han
     begin
         if (not AuditFileExportHeader."Split By Month") and (not AuditFileExportHeader."Split By Date") then begin
             AuditFileExportMgt.InsertAuditFileExportLine(
-                AuditFileExportLine, LineNo, AuditFileExportHeader.ID, "Audit File Export Data Class"::GeneralLedgerEntries,
+                AuditFileExportLine, LineNo, AuditFileExportHeader.ID, Enum::"Audit File Export Data Class"::GeneralLedgerEntries,
                 StrSubstNo(GLEntriesTxt, AuditFileExportHeader."Starting Date", AuditFileExportHeader."Ending Date"),
                 AuditFileExportHeader."Starting Date", AuditFileExportHeader."Ending Date");
             exit;
@@ -107,7 +119,7 @@ codeunit 5281 "Audit Data Handling SAF-T" implements "Audit File Export Data Han
             GLEntry.SetRange("Posting Date", StartingDate, EndingDate);
             if not GLEntry.IsEmpty() then
                 AuditFileExportMgt.InsertAuditFileExportLine(
-                    AuditFileExportLine, LineNo, AuditFileExportHeader.ID, "Audit File Export Data Class"::GeneralLedgerEntries,
+                    AuditFileExportLine, LineNo, AuditFileExportHeader.ID, Enum::"Audit File Export Data Class"::GeneralLedgerEntries,
                     StrSubstNo(GLEntriesTxt, StartingDate, EndingDate), StartingDate, EndingDate);
             StartingDate := NormalDate(EndingDate) + 1;
             EndingDate := CalcDate(ShiftDateFormula, StartingDate);
@@ -121,5 +133,31 @@ codeunit 5281 "Audit Data Handling SAF-T" implements "Audit File Export Data Han
         AuditExportDataTypeSetup.SetRange("Export Enabled", true);
         AuditExportDataTypeSetup.SetRange("Export Data Class", AuditFileExportDataClass);
         exit(not AuditExportDataTypeSetup.IsEmpty());
+    end;
+
+    local procedure CalculateGLEntryTotals(var AuditFileExportHeader: Record "Audit File Export Header")
+    var
+        GLEntry: Record "G/L Entry";
+        GLEntryByTransSAFT: Query "G/L Entry By Trans. SAF-T";
+    begin
+        GLEntry.SetCurrentKey("Transaction No.");
+        GLEntry.SetRange("Posting Date", AuditFileExportHeader."Starting Date", AuditFileExportHeader."Ending Date");
+        GLEntry.CalcSums("Debit Amount", "Credit Amount");
+        AuditFileExportHeader."Total G/L Entry Debit" := GLEntry."Debit Amount";
+        AuditFileExportHeader."Total G/L Entry Credit" := GLEntry."Credit Amount";
+        AuditFileExportHeader."Number of G/L Entries" := 0;
+
+        GLEntryByTransSAFT.SetRange(Posting_Date, AuditFileExportHeader."Starting Date", AuditFileExportHeader."Ending Date");
+        if GLEntryByTransSAFT.Open() then begin
+            while GLEntryByTransSAFT.Read() do
+                AuditFileExportHeader."Number of G/L Entries" += 1;
+            GLEntryByTransSAFT.Close();
+        end;
+    end;
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"Audit File Export Mgt.", 'OnBeforeModifyAuditFileExportHeaderToStartExport', '', false, false)]
+    local procedure OnBeforeModifyAuditFileExportHeaderToStartExport(var AuditFileExportHeader: Record "Audit File Export Header")
+    begin
+        CalculateGLEntryTotals(AuditFileExportHeader);
     end;
 }

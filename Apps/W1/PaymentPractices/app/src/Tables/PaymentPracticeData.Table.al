@@ -1,3 +1,12 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.Analysis;
+
+using Microsoft.Purchases.Payables;
+using Microsoft.Sales.Receivables;
+
 table 686 "Payment Practice Data"
 {
     DataClassification = CustomerContent;
@@ -141,7 +150,10 @@ table 686 "Payment Practice Data"
             PaymentPracticeLine."Aggregation Type"::Period:
                 begin
                     PaymentPeriod.Get(PaymentPracticeLine."Payment Period Code");
-                    Rec.SetRange("Actual Payment Days", PaymentPeriod."Days From", PaymentPeriod."Days To");
+                    if PaymentPeriod."Days To" <> 0 then
+                        Rec.SetRange("Actual Payment Days", PaymentPeriod."Days From", PaymentPeriod."Days To")
+                    else
+                        Rec.SetFilter("Actual Payment Days", '>=%1', PaymentPeriod."Days From");
                     Rec.SetRange("Invoice Is Open", false);
                 end;
         end;

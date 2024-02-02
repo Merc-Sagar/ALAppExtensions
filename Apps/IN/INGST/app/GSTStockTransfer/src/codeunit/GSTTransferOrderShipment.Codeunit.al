@@ -1,3 +1,25 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.GST.StockTransfer;
+
+using Microsoft.Finance.Dimension;
+using Microsoft.Finance.GeneralLedger.Journal;
+using Microsoft.Finance.GeneralLedger.Posting;
+using Microsoft.Finance.GeneralLedger.Setup;
+using Microsoft.Finance.GST.Base;
+using Microsoft.Finance.TaxBase;
+using Microsoft.Finance.TaxEngine.TaxTypeHandler;
+using Microsoft.Foundation.AuditCodes;
+using Microsoft.Foundation.NoSeries;
+using Microsoft.Inventory.Item;
+using Microsoft.Inventory.Ledger;
+using Microsoft.Inventory.Location;
+using Microsoft.Inventory.Posting;
+using Microsoft.Inventory.Transfer;
+using System.Reflection;
+
 codeunit 18391 "GST Transfer Order Shipment"
 {
     SingleInstance = True;
@@ -19,7 +41,12 @@ codeunit 18391 "GST Transfer Order Shipment"
     var
         GSTTrackingEntry: Record "GST Tracking Entry";
         ItemLedgerEntry: Record "Item Ledger Entry";
+        IsHandled: Boolean;
     begin
+        OnBeforeUpdateGSTTrackingEntryFromTransferOrder(DocumentNo, ItemNo, DocumentLineNo, OrignalDocType, IsHandled);
+        if IsHandled then
+            exit;
+
         ItemLedgerEntry.SetRange("Document No.", DocumentNo);
         ItemLedgerEntry.SetRange("Item No.", ItemNo);
         ItemLedgerEntry.SetRange(Open, true);
@@ -56,7 +83,8 @@ codeunit 18391 "GST Transfer Order Shipment"
             exit;
 
         GSTSetup.TestField("GST Tax Type");
-        TaxComponent.SetRange("Tax Type", GSTSetup."GST Tax Type");
+        GSTSetup.TestField("Cess Tax Type");
+        TaxComponent.SetFilter("Tax Type", '%1|%2', GSTSetup."GST Tax Type", GSTSetup."Cess Tax Type");
         TaxComponent.SetRange(Name, ComponentCode);
         if TaxComponent.FindFirst() then
             exit(TaxComponent.Id)
@@ -87,8 +115,16 @@ codeunit 18391 "GST Transfer Order Shipment"
     var
         GSTLedgerEntry: Record "GST Ledger Entry";
         Location: Record Location;
+        IsHandled: Boolean;
     begin
+        OnBeforeInsertGSTLedgerEntryTransfer(GSTPostingBuffer, TransferHeader, NextTransactionNo, DocumentNo, SourceCode, DocTransferType, IsHandled);
+        if IsHandled then
+            exit;
+
         Location.Get(TransferHeader."Transfer-from Code");
+
+        if GSTPostingBuffer."GST Amount" = 0 then
+            exit;
 
         GSTLedgerEntry.Init();
         GSTLedgerEntry."Entry No." := 0;
@@ -119,6 +155,7 @@ codeunit 18391 "GST Transfer Order Shipment"
         GSTLedgerEntry."Source Code" := SourceCode;
         GSTLedgerEntry."Transaction No." := NextTransactionNo;
         GSTLedgerEntry."GST Component Code" := GSTPostingBuffer."GST Component Code";
+        OnAfterUpdateOnBeforeInsertGSTLedgerEntryTransfer(GSTPostingBuffer, TransferHeader, GSTLedgerEntry);
         GSTLedgerEntry.Insert(true);
     end;
 
@@ -135,7 +172,12 @@ codeunit 18391 "GST Transfer Order Shipment"
         Location2: Record Location;
         TaxTransactionValue: Record "Tax Transaction Value";
         ShipRcvQuantity: Decimal;
+        IsHandled: Boolean;
     begin
+        OnBeforeInsertDetailedGSTLedgEntryTransfer(TransferLine, TransferHeader, DocumentNo, TransactionNo, DocTransferType, IsHandled);
+        if IsHandled then
+            exit;
+
         if (TransferLine."GST Group Code" = '') or (TransferLine."HSN/SAC Code" = '') then
             exit;
 
@@ -159,6 +201,7 @@ codeunit 18391 "GST Transfer Order Shipment"
         DetailedGSTEntryBuffer.SetRange("Document Type", 0);
         DetailedGSTEntryBuffer.SetRange("Document No.", TransferLine."Document No.");
         DetailedGSTEntryBuffer.SetRange("Line No.", TransferLine."Line No.");
+        DetailedGSTEntryBuffer.SetFilter("GST Amount", '<>%1', 0);
         if DetailedGSTEntryBuffer.FindSet() then
             repeat
                 DetailedGSTLedgerEntry.Init();
@@ -215,7 +258,12 @@ codeunit 18391 "GST Transfer Order Shipment"
         DetailedGSTLedgerEntryInfo: Record "Detailed GST Ledger Entry Info";
         Location: Record Location;
         Location2: Record Location;
+        IsHandled: Boolean;
     begin
+        OnBeforeInsertDetailedGSTEntryInfoTransfer(DetailedGSTLedgerEntry, DetailedGSTEntryBuffer, TransferHeader, DocTransferType, IsHandled);
+        if IsHandled then
+            exit;
+
         Location.Get(TransferHeader."Transfer-from Code");
         Location2.Get(TransferHeader."Transfer-to Code");
 
@@ -260,6 +308,7 @@ codeunit 18391 "GST Transfer Order Shipment"
         TransferHeader: Record "Transfer Header";
         GeneralLedgerSetup: Record "General Ledger Setup";
         DetailedGSTEntryBuffer: Record "Detailed GST Entry Buffer";
+        GSTGroup: Record "GST Group";
         GSTSetup: Record "GST Setup";
         TaxTransactionValue: Record "Tax Transaction Value";
         Item: Record Item;
@@ -271,6 +320,7 @@ codeunit 18391 "GST Transfer Order Shipment"
             exit;
 
         GSTSetup.TestField("GST Tax Type");
+        GSTSetup.TestField("Cess Tax Type");
         TransferHeader.Get(DocNo);
         GeneralLedgerSetup.Get();
         Sign := GSTBaseValidation.GetSignTransfer(DocumentType::Quote, TransactionType::"Transfer");
@@ -283,10 +333,10 @@ codeunit 18391 "GST Transfer Order Shipment"
                     TransferLine.TestField(Quantity);
                     Item.Get(TransferLine."Item No.");
                     TaxTransactionValue.Reset();
-                    TaxTransactionValue.SetRange("Tax Type", GSTSetup."GST Tax Type");
+                    TaxTransactionValue.SetFilter("Tax Type", '%1|%2', GSTSetup."GST Tax Type", GSTSetup."Cess Tax Type");
                     TaxTransactionValue.SetRange("Tax Record ID", TransferLine.RecordId);
                     TaxTransactionValue.SetRange("Value Type", TaxTransactionValue."Value Type"::COMPONENT);
-                    TaxTransactionValue.SetFilter(Percent, '<>%1', 0);
+                    TaxTransactionValue.SetFilter(Amount, '<>%1', 0);
                     if TaxTransactionValue.FindSet() then
                         repeat
                             DetailedGSTEntryBuffer.Init();
@@ -318,8 +368,13 @@ codeunit 18391 "GST Transfer Order Shipment"
                             end else
                                 DetailedGSTEntryBuffer."GST Input/Output Credit Amount" := Sign * TaxTransactionValue.Amount;
 
-                            DetailedGSTEntryBuffer."GST Component Code" := GetGSTComponent(TaxTransactionValue."Value ID");
+                            if TaxTransactionValue."Tax Type" = GSTSetup."Cess Tax Type" then
+                                DetailedGSTEntryBuffer."GST Component Code" := 'CESS'
+                            else
+                                DetailedGSTEntryBuffer."GST Component Code" := GetGSTComponent(TaxTransactionValue."Value ID");
                             DetailedGSTEntryBuffer."GST Group Code" := TransferLine."GST Group Code";
+                            if GSTGroup.Get(TransferLine."GST Group Code") and (GSTSetup."Cess Tax Type" = TaxTransactionValue."Tax Type") then
+                                DetailedGSTEntryBuffer."Component Calc. Type" := GSTGroup."Component Calc. Type";
                             GSTBaseValidation.GetTaxComponentRoundingPrecision(DetailedGSTEntryBuffer, TaxTransactionValue);
                             DetailedGSTEntryBuffer.Insert(true);
                         until TaxTransactionValue.Next() = 0;
@@ -336,7 +391,8 @@ codeunit 18391 "GST Transfer Order Shipment"
             exit;
 
         GSTSetup.TestField("GST Tax Type");
-        TaxComponent.SetRange("Tax Type", GSTSetup."GST Tax Type");
+        GSTSetup.TestField("Cess Tax Type");
+        TaxComponent.SetFilter("Tax Type", '%1|%2', GSTSetup."GST Tax Type", GSTSetup."Cess Tax Type");
         TaxComponent.SetRange(Id, ComponentID);
         if TaxComponent.FindFirst() then
             exit(TaxComponent.Name);
@@ -350,15 +406,18 @@ codeunit 18391 "GST Transfer Order Shipment"
         if not GSTSetup.Get() then
             exit;
 
-        GSTSetup.TestField("GST Tax Type");
-
-        TaxTransactionValue.Reset();
-        TaxTransactionValue.SetRange("Tax Type", GSTSetup."GST Tax Type");
+        TaxTransactionValue.SetCurrentKey("Tax Record ID", "Value Type", "Tax Type", Percent);
         TaxTransactionValue.SetRange("Tax Record ID", TaxRecordId);
         TaxTransactionValue.SetRange("Value Type", TaxTransactionValue."Value Type"::COMPONENT);
-        TaxTransactionValue.SetFilter(Amount, '<>%1', 0);
-        if TaxTransactionValue.FindFirst() then
-            exit(TaxTransactionValue.Amount);
+        if GSTSetup."Cess Tax Type" <> '' then
+            TaxTransactionValue.SetRange("Tax Type", GSTSetup."GST Tax Type", GSTSetup."Cess Tax Type")
+        else
+            TaxTransactionValue.SetRange("Tax Type", GSTSetup."GST Tax Type");
+        TaxTransactionValue.SetFilter(Percent, '<>%1', 0);
+        if not TaxTransactionValue.IsEmpty() then
+            TaxTransactionValue.CalcSums(Amount);
+
+        exit(TaxTransactionValue.Amount);
     end;
 
     local procedure FillTransferBuffer(TransferLine: Record "Transfer Line")
@@ -487,7 +546,8 @@ codeunit 18391 "GST Transfer Order Shipment"
                 TempGSTPostingBufferStage."GST Amount" := GSTBaseValidation.RoundGSTPrecisionThroughTaxComponent(DetailedGSTEntryBuffer."GST Component Code", (QFactor * DetailedGSTEntryBuffer."GST Amount"));
                 TempGSTPostingBufferStage."GST %" := DetailedGSTEntryBuffer."GST %";
                 TempGSTPostingBufferStage."GST Component Code" := DetailedGSTEntryBuffer."GST Component Code";
-                TempGSTPostingBufferStage."Account No." := GetGSTPayableAccountNo(GSTStateCode, DetailedGSTEntryBuffer."GST Component Code");
+                if TempGSTPostingBufferStage."GST Amount" <> 0 then
+                    TempGSTPostingBufferStage."Account No." := GetGSTPayableAccountNo(GSTStateCode, DetailedGSTEntryBuffer."GST Component Code");
                 UpdateGSTPostingBuffer(TransferLine);
             until DetailedGSTEntryBuffer.Next() = 0;
     end;
@@ -1033,7 +1093,12 @@ codeunit 18391 "GST Transfer Order Shipment"
     local procedure FillBuffer(var TransShptLine: Record "Transfer Shipment Line"; TransLine: Record "Transfer Line")
     var
         GSTGroup: Record "GST Group";
+        IsHandled: Boolean;
     begin
+        OnBeforeInsertTransShptLineFillBuffer(TransShptLine, TransLine, IsHandled);
+        if IsHandled then
+            exit;
+
         if GSTGroup.Get(TransLine."GST Group Code") and (GSTGroup."GST Group Type" <> GSTGroup."GST Group Type"::Goods) then
             Error(GSTGroupServiceErr);
 
@@ -1086,5 +1151,35 @@ codeunit 18391 "GST Transfer Order Shipment"
         GenJournalLine.Description := STRSUBSTNO(TransferShipmentNoLbl, TransferShipmentHeader."No.");
         if GenJournalLine."Amount" <> 0 then
             RunGenJnlPostLine(GenJournalLine);
+    end;
+
+    [IntegrationEvent(false, false)]
+    local procedure OnBeforeUpdateGSTTrackingEntryFromTransferOrder(DocumentNo: Code[20]; ItemNo: Code[20]; DocumentLineNo: Integer; OrignalDocType: Enum "Original Doc Type"; var IsHandled: Boolean)
+    begin
+    end;
+
+    [IntegrationEvent(false, false)]
+    local procedure OnBeforeInsertGSTLedgerEntryTransfer(var GSTPostingBuffer: Record "GST Posting Buffer"; var TransferHeader: Record "Transfer Header"; NextTransactionNo: Integer; DocumentNo: Code[20]; SourceCode: Code[10]; DocTransferType: enum "Doc Transfer Type"; var IsHandled: Boolean)
+    begin
+    end;
+
+    [IntegrationEvent(false, false)]
+    local procedure OnAfterUpdateOnBeforeInsertGSTLedgerEntryTransfer(GSTPostingBuffer: Record "GST Posting Buffer"; TransferHeader: Record "Transfer Header"; var GSTLedgerEntry: Record "GST Ledger Entry")
+    begin
+    end;
+
+    [IntegrationEvent(false, false)]
+    local procedure OnBeforeInsertDetailedGSTLedgEntryTransfer(var TransferLine: Record "Transfer Line"; var TransferHeader: Record "Transfer Header"; DocumentNo: Code[20]; TransactionNo: Integer; DocTransferType: Enum "Doc Transfer Type"; var IsHandled: Boolean)
+    begin
+    end;
+
+    [IntegrationEvent(false, false)]
+    local procedure OnBeforeInsertDetailedGSTEntryInfoTransfer(DetailedGSTLedgerEntry: Record "Detailed GST Ledger Entry"; DetailedGSTEntryBuffer: Record "Detailed GST Entry Buffer"; var TransferHeader: Record "Transfer Header"; DocTransferType: Enum "Doc Transfer Type"; var IsHandled: Boolean)
+    begin
+    end;
+
+    [IntegrationEvent(false, false)]
+    local procedure OnBeforeInsertTransShptLineFillBuffer(var TransShptLine: Record "Transfer Shipment Line"; TransLine: Record "Transfer Line"; var IsHandled: Boolean)
+    begin
     end;
 }

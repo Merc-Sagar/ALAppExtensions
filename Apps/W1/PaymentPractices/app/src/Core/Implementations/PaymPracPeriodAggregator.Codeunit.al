@@ -1,3 +1,12 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.Analysis;
+
+using Microsoft.Foundation.Reporting;
+using System.Telemetry;
+
 codeunit 685 "Paym. Prac. Period Aggregator" implements PaymentPracticeLinesAggregator
 {
     Access = Internal;
@@ -67,7 +76,7 @@ codeunit 685 "Paym. Prac. Period Aggregator" implements PaymentPracticeLinesAggr
         PaymentPracticeData.SetRange("Invoice Is Open", false);
         if PaymentPracticeData.FindSet() then
             repeat
-                if (PaymentPracticeData."Actual Payment Days" >= DaysFrom) and (PaymentPracticeData."Actual Payment Days" <= DaysTo) then begin
+                if (PaymentPracticeData."Actual Payment Days" >= DaysFrom) and ((PaymentPracticeData."Actual Payment Days" <= DaysTo) or (DaysTo = 0)) then begin
                     PaidInPeriodAmount += PaymentPracticeData."Invoice Amount";
                     PaidInPeriod += 1;
                 end;

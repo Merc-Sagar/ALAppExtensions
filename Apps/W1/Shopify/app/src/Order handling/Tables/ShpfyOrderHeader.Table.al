@@ -1,3 +1,12 @@
+namespace Microsoft.Integration.Shopify;
+
+using System.IO;
+using Microsoft.Sales.Customer;
+using Microsoft.Sales.Document;
+using Microsoft.Bank.BankAccount;
+using Microsoft.Foundation.Shipping;
+using System.Reflection;
+
 /// <summary>
 /// Table Shpfy Order Header (ID 30118).
 /// </summary>
@@ -545,6 +554,42 @@ table 30118 "Shpfy Order Header"
             Caption = 'Edited';
             DataClassification = SystemMetadata;
         }
+        field(116; "Return Status"; Enum "Shpfy Order Return Status")
+        {
+            Caption = 'Return Status';
+            DataClassification = SystemMetadata;
+        }
+        field(117; "Company Id"; BigInteger)
+        {
+            Caption = 'Company Id';
+            DataClassification = SystemMetadata;
+        }
+        field(118; "Company Main Contact Id"; BigInteger)
+        {
+            Caption = 'Company Main Contact Id';
+            DataClassification = SystemMetadata;
+        }
+        field(119; "Company Main Contact Email"; Text[100])
+        {
+            Caption = 'Company Main Contact Email';
+            DataClassification = SystemMetadata;
+        }
+        field(120; "Company Main Contact Phone No."; Text[50])
+        {
+            Caption = 'Company Main Contact Phone No.';
+            DataClassification = SystemMetadata;
+            ExtendedDatatype = PhoneNo;
+        }
+        field(121; "Company Main Contact Cust. Id"; BigInteger)
+        {
+            Caption = 'Company Main Contact Customer Id';
+            DataClassification = SystemMetadata;
+        }
+        field(122; B2B; Boolean)
+        {
+            Caption = 'B2B';
+            DataClassification = SystemMetadata;
+        }
         field(500; "Shop Code"; Code[20])
         {
             Caption = 'Shop Code';
@@ -697,6 +742,11 @@ table 30118 "Shpfy Order Header"
             Caption = 'Ship-to Contact No.';
             DataClassification = CustomerContent;
         }
+        field(1020; "Has Order State Error"; Boolean)
+        {
+            Caption = 'Has Order State Error';
+            DataClassification = SystemMetadata;
+        }
     }
     keys
     {
@@ -718,6 +768,7 @@ table 30118 "Shpfy Order Header"
         ShopifyRefundHeader: Record "Shpfy Refund Header";
         DataCapture: Record "Shpfy Data Capture";
         FulfillmentOrderHeader: Record "Shpfy FulFillment Order Header";
+        OrderFulfillment: Record "Shpfy Order Fulfillment";
     begin
         ShopifyOrderLine.SetRange("Shopify Order Id", "Shopify Order Id");
         if not ShopifyOrderLine.IsEmpty then
@@ -727,7 +778,7 @@ table 30118 "Shpfy Order Header"
             ShopifyReturnHeader.DeleteAll(true);
         ShopifyRefundHeader.SetRange("Order Id", "Shopify Order Id");
         if not ShopifyRefundHeader.IsEmpty then
-            ShopifyRefundHeader.DeleteAll();
+            ShopifyRefundHeader.DeleteAll(true);
         DataCapture.SetCurrentKey("Linked To Table", "Linked To Id");
         DataCapture.SetRange("Linked To Table", Database::"Shpfy Order Header");
         DataCapture.SetRange("Linked To Id", Rec.SystemId);
@@ -737,6 +788,10 @@ table 30118 "Shpfy Order Header"
         FulfillmentOrderHeader.SetRange("Shopify Order Id", Rec."Shopify Order Id");
         if not FulfillmentOrderHeader.IsEmpty then
             FulfillmentOrderHeader.DeleteAll(true);
+
+        OrderFulfillment.SetRange("Shopify Order Id", Rec."Shopify Order Id");
+        if not OrderFulfillment.IsEmpty then
+            OrderFulfillment.DeleteAll(true);
     end;
 
     /// <summary> 

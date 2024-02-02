@@ -1,3 +1,12 @@
+// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Inventory.Intrastat;
+
+using System.Environment;
+using System.Utilities;
+
 page 4813 "Intrastat Report Subform"
 {
     AutoSplitKey = true;
@@ -272,21 +281,21 @@ page 4813 "Intrastat Report Subform"
 
     local procedure UpdateErrors()
     var
-        ErrorMessage: Record "Error Message";
-        IsHandled: Boolean;
+        IsHandled, ErrorExists : Boolean;
     begin
         IsHandled := false;
         OnBeforeUpdateErrors(IsHandled, Rec);
         if IsHandled then
             exit;
 
-        ErrorMessage.SetRange("Record ID", Rec.RecordId);
-        if ErrorMessage.IsEmpty then
-            LineStyleExpression := 'None'
-        else
-            LineStyleExpression := 'Attention';
+        ErrorExists := ErrorsExistOnCurrentLine();
 
-        Rec.Mark(ErrorsExistOnCurrentLine());
+        if ErrorExists then
+            LineStyleExpression := 'Attention'
+        else
+            LineStyleExpression := 'None';
+
+        Rec.Mark(ErrorExists);
     end;
 
     [IntegrationEvent(true, false)]

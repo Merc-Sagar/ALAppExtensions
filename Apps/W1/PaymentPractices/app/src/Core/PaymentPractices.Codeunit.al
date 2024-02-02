@@ -1,3 +1,9 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.Analysis;
+
 codeunit 689 "Payment Practices"
 {
     var
@@ -7,6 +13,8 @@ codeunit 689 "Payment Practices"
     var
         PaymentPracticeData: Record "Payment Practice Data";
     begin
+        PaymentPracticeHeader.TestField("Starting Date");
+        PaymentPracticeHeader.TestField("Ending Date");
         PaymentPracticeData.Reset();
         PaymentPracticeData.SetRange("Header No.", PaymentPracticeHeader."No.");
         PaymentPracticeData.DeleteAll();

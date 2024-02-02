@@ -1,9 +1,17 @@
+namespace Microsoft.DataMigration.GP;
+
+using Microsoft.Purchases.Document;
+using Microsoft.Inventory.Item;
+#if not CLEAN22
+using System.Integration;
+#endif
+
 table 40103 "GP POPPOLine"
 {
     DataClassification = CustomerContent;
     Extensible = false;
     ObsoleteReason = 'Replaced by table GP POP10110.';
- #if not CLEAN22
+#if not CLEAN22
     ObsoleteState = Pending;
     ObsoleteTag = '22.0';
 #else
@@ -569,6 +577,7 @@ table 40103 "GP POPPOLine"
     var
         PurchaseLine: Record "Purchase Line";
         GPPOPReceiptApply: Record GPPOPReceiptApply;
+        DataMigrationErrorLogging: Codeunit "Data Migration Error Logging";
         PurchaseDocumentType: Enum "Purchase Document Type";
         PurchaseLineType: Enum "Purchase Line Type";
         LineNo: Integer;
@@ -578,6 +587,8 @@ table 40103 "GP POPPOLine"
         SetRange(PONUMBER, PO_Number);
         if FindSet() then
             repeat
+                DataMigrationErrorLogging.SetLastRecordUnderProcessing(Format(Rec.RecordId));
+
                 PurchaseLine.Init();
                 PurchaseLine."Document No." := PO_Number;
                 PurchaseLine."Document Type" := PurchaseDocumentType::Order;

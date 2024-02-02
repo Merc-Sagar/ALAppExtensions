@@ -1,3 +1,9 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.Analysis;
+
 table 688 "Payment Practice Line"
 {
     DataClassification = CustomerContent;
@@ -30,27 +36,45 @@ table 688 "Payment Practice Line"
         }
         field(7; "Average Agreed Payment Period"; Integer)
         {
-
+            trigger OnValidate()
+            begin
+                Rec."Modified Manually" := true;
+            end;
         }
         field(8; "Average Actual Payment Period"; Integer)
         {
-
+            trigger OnValidate()
+            begin
+                Rec."Modified Manually" := true;
+            end;
         }
         field(9; "Pct Paid on Time"; Decimal)
         {
-
+            trigger OnValidate()
+            begin
+                Rec."Modified Manually" := true;
+            end;
         }
         field(10; "Pct Paid in Period"; Decimal)
         {
-
+            trigger OnValidate()
+            begin
+                Rec."Modified Manually" := true;
+            end;
         }
         field(11; "Pct Paid in Period (Amount)"; Decimal)
         {
-
+            trigger OnValidate()
+            begin
+                Rec."Modified Manually" := true;
+            end;
         }
         field(12; "Payment Period Description"; Text[250])
         {
-
+            trigger OnValidate()
+            begin
+                Rec."Modified Manually" := true;
+            end;
         }
         field(13; "Modified Manually"; Boolean)
         {

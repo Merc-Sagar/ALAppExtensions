@@ -1,3 +1,21 @@
+namespace Microsoft.CRM.EmailLoggin;
+
+using System.Environment.Configuration;
+using Microsoft.CRM.Setup;
+using System.Threading;
+using Microsoft.CRM.Outlook;
+using System.Security.Authentication;
+using Microsoft.CRM.Interaction;
+using System.Globalization;
+using System.Media;
+using System;
+#if not CLEAN22
+using System.EMail;
+#endif
+using System.Utilities;
+using System.Security.Encryption;
+using Microsoft.Utilities;
+
 codeunit 1681 "Email Logging Management"
 {
     Access = Internal;

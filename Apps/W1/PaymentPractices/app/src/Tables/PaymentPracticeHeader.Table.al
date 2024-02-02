@@ -1,3 +1,12 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.Analysis;
+
+using Microsoft.Foundation.NoSeries;
+using System.Utilities;
+
 table 687 "Payment Practice Header"
 {
     DataClassification = CustomerContent;
@@ -10,14 +19,22 @@ table 687 "Payment Practice Header"
         }
         field(2; "Starting Date"; Date)
         {
-
+            trigger OnValidate()
+            begin
+                ValidateDates();
+            end;
         }
         field(3; "Ending Date"; Date)
         {
-
+            trigger OnValidate()
+            begin
+                ValidateDates();
+            end;
         }
         field(4; "Aggregation Type"; Enum "Paym. Prac. Aggregation Type")
         {
+            InitValue = 1;
+
             trigger OnValidate()
             begin
                 ValidateFieldChange(Rec."Aggregation Type");
@@ -33,6 +50,8 @@ table 687 "Payment Practice Header"
         }
         field(5; "Header Type"; Enum "Paym. Prac. Header Type")
         {
+            InitValue = 1;
+
             trigger OnValidate()
             begin
                 ValidateFieldChange(Rec."Aggregation Type");
@@ -107,6 +126,7 @@ table 687 "Payment Practice Header"
     var
         ConfirmManagement: Codeunit "Confirm Management";
         ClearHeaderQst: Label 'Changing %1 will delete existing lines. Do you want to continue?', Comment = '%1 = Field name';
+        DateValidationErr: Label 'Starting Date must be less than or equal to Ending Date.';
 
     procedure UpdateNo(): Integer
     var
@@ -138,5 +158,12 @@ table 687 "Payment Practice Header"
     local procedure ValidateFieldChange(PaymentPracticeLinesAggregator: Interface PaymentPracticeLinesAggregator)
     begin
         PaymentPracticeLinesAggregator.ValidateHeader(Rec);
+    end;
+
+    local procedure ValidateDates()
+    begin
+        if (Rec."Starting Date" <> 0D) and (Rec."Ending Date" <> 0D) then
+            if Rec."Starting Date" > Rec."Ending Date" then
+                Error(DateValidationErr);
     end;
 }

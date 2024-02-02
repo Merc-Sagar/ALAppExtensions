@@ -1,3 +1,34 @@
+﻿// ------------------------------------------------------------------------------------------------
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+// ------------------------------------------------------------------------------------------------
+namespace Microsoft.Finance.GST.Application;
+
+using Microsoft.Finance.Dimension;
+using Microsoft.Finance.GeneralLedger.Journal;
+using Microsoft.Finance.GeneralLedger.Ledger;
+using Microsoft.Finance.GeneralLedger.Posting;
+using Microsoft.Finance.GeneralLedger.Preview;
+using Microsoft.Finance.GeneralLedger.Setup;
+using Microsoft.Finance.GST.Base;
+using Microsoft.Finance.GST.Subcontracting;
+using Microsoft.Finance.ReceivablesPayables;
+using Microsoft.FixedAssets.Depreciation;
+using Microsoft.FixedAssets.FixedAsset;
+using Microsoft.FixedAssets.Ledger;
+using Microsoft.Foundation.AuditCodes;
+using Microsoft.Inventory.Costing;
+using Microsoft.Inventory.Journal;
+using Microsoft.Inventory.Ledger;
+using Microsoft.Inventory.Posting;
+using Microsoft.Manufacturing.Document;
+using Microsoft.Purchases.Document;
+using Microsoft.Purchases.Payables;
+using Microsoft.Purchases.Posting;
+using Microsoft.Purchases.Vendor;
+using Microsoft.Sales.Customer;
+using Microsoft.Sales.Receivables;
+
 codeunit 18430 "GST Application Handler"
 {
     var
@@ -433,7 +464,12 @@ codeunit 18430 "GST Application Handler"
         VendorLedgerEntry: Record "Vendor Ledger Entry";
         ApplyingVendorLedgerEntry: Record "Vendor Ledger Entry";
         TransactionType: Enum "Detail Ledger Transaction Type";
+        IsHandled: Boolean;
     begin
+        OnBeforePostGSTWithNormalPaymentOffline(GenJournalLine, AmountToApply, IsHandled);
+        if IsHandled then
+            exit;
+
         if not ApplyingVendorLedgerEntry.Get(OldCVLedgerEntryBuffer."Entry No.") then
             exit;
 
@@ -676,6 +712,9 @@ codeunit 18430 "GST Application Handler"
                             then
                                 ApplicationRatio := PaymentOriginalAmountLCY / Round(GSTApplicationBuffer."Amt to Apply" / GSTApplicationBuffer."Currency Factor");
 
+                            if DetailedGSTLedgerEntry."Reverse Charge" then
+                                ApplicationRatio := 1;
+
                             OnBeforeCalculateGSTAppliedAmount(PaymentCurrencyFactor, DetailedGSTLedgerEntry, DetailedGSTLedgerEntryInfo, ApplicationRatio, RemainingBase, RemainingAmount, AppliedBase, AppliedAmount);
                             GSTApplicationLibrary.GetAppliedAmount(
                                 Abs(RemainingBase),
@@ -709,41 +748,43 @@ codeunit 18430 "GST Application Handler"
                                     Abs(GSTApplicationBuffer."Applied Base Amount") * AppliedBase;
                                 GSTApplicationBuffer.Modify();
 
-                                AppliedBaseAmountInvoiceLCY := Round(
-                                    Abs(AppliedBaseAmountInvoiceLCY * GSTApplicationBuffer."Amt to Apply (Applied)" / GSTApplicationBuffer."Amt to Apply"));
-                                AppliedAmountInvoiceLCY := Round(AppliedBaseAmountInvoiceLCY * GSTApplicationBuffer."GST %" / 100);
-                                CreateDetailedGSTApplicationEntry(
-                                    ApplyDetailedGSTLedgerEntryNew,
-                                    DetailedGSTLedgerEntry,
-                                    GenJournalLine,
-                                    InvoiceNo,
-                                    AppliedBaseAmountInvoiceLCY,
-                                    AppliedAmountInvoiceLCY);
+                                if (not ApplyDetailedGSTLedgerEntry."Reverse Charge") then begin
+                                    AppliedBaseAmountInvoiceLCY := Round(
+                                        Abs(AppliedBaseAmountInvoiceLCY * GSTApplicationBuffer."Amt to Apply (Applied)" / GSTApplicationBuffer."Amt to Apply"));
+                                    AppliedAmountInvoiceLCY := Round(AppliedBaseAmountInvoiceLCY * GSTApplicationBuffer."GST %" / 100);
+                                    CreateDetailedGSTApplicationEntry(
+                                        ApplyDetailedGSTLedgerEntryNew,
+                                        DetailedGSTLedgerEntry,
+                                        GenJournalLine,
+                                        InvoiceNo,
+                                        AppliedBaseAmountInvoiceLCY,
+                                        AppliedAmountInvoiceLCY);
 
-                                ApplyDetailedGSTLedgerEntry."Forex Fluctuation" := true;
-                                ApplyDetailedGSTLedgerEntry."Payment Type" := ApplyDetailedGSTLedgerEntry."Payment Type"::Normal;
-                                ApplyDetailedGSTLedgerEntry.Quantity := 0;
+                                    ApplyDetailedGSTLedgerEntry."Forex Fluctuation" := true;
+                                    ApplyDetailedGSTLedgerEntry."Payment Type" := ApplyDetailedGSTLedgerEntry."Payment Type"::Normal;
+                                    ApplyDetailedGSTLedgerEntry.Quantity := 0;
 
-                                if ApplyDetailedGSTLedgerEntry."GST Credit" = ApplyDetailedGSTLedgerEntry."GST Credit"::"Non-Availment" then
-                                    ApplyDetailedGSTLedgerEntry."Amount Loaded on Item" := ApplyDetailedGSTLedgerEntry."GST Amount";
-
-                                if PaymentCurrencyFactor < DetailedGSTLedgerEntry."Currency Factor" then
                                     if ApplyDetailedGSTLedgerEntry."GST Credit" = ApplyDetailedGSTLedgerEntry."GST Credit"::"Non-Availment" then
-                                        ApplyDetailedGSTLedgerEntry."Liable to Pay" := true
-                                    else
-                                        if ApplyDetailedGSTLedgerEntry."GST Credit" = ApplyDetailedGSTLedgerEntry."GST Credit"::Availment then begin
-                                            ApplyDetailedGSTLedgerEntry."Credit Availed" := true;
-                                            ApplyDetailedGSTLedgerEntry."Liable to Pay" := true;
-                                        end;
+                                        ApplyDetailedGSTLedgerEntry."Amount Loaded on Item" := ApplyDetailedGSTLedgerEntry."GST Amount";
 
-                                if (PaymentCurrencyFactor > DetailedGSTLedgerEntry."Currency Factor") and
-                                    (ApplyDetailedGSTLedgerEntry."GST Credit" = ApplyDetailedGSTLedgerEntry."GST Credit"::"Non-Availment")
-                                then
-                                    ApplyDetailedGSTLedgerEntry."Fluctuation Amt. Credit" := true;
+                                    if PaymentCurrencyFactor < DetailedGSTLedgerEntry."Currency Factor" then
+                                        if ApplyDetailedGSTLedgerEntry."GST Credit" = ApplyDetailedGSTLedgerEntry."GST Credit"::"Non-Availment" then
+                                            ApplyDetailedGSTLedgerEntry."Liable to Pay" := true
+                                        else
+                                            if ApplyDetailedGSTLedgerEntry."GST Credit" = ApplyDetailedGSTLedgerEntry."GST Credit"::Availment then begin
+                                                ApplyDetailedGSTLedgerEntry."Credit Availed" := true;
+                                                ApplyDetailedGSTLedgerEntry."Liable to Pay" := true;
+                                            end;
 
-                                ApplyDetailedGSTLedgerEntryNew.Insert(true);
-                                CreateDetailedGSTApplicationEntryInfo(ApplyDetailedGSTLedgerEntryNew, DetailedGSTLedgerEntry, PaymentDocNo, false);
-                                FillGSTPostingBufferWithApplication(ApplyDetailedGSTLedgerEntryNew, true, HigherInvoiceExchangeRate);
+                                    if (PaymentCurrencyFactor > DetailedGSTLedgerEntry."Currency Factor") and
+                                        (ApplyDetailedGSTLedgerEntry."GST Credit" = ApplyDetailedGSTLedgerEntry."GST Credit"::"Non-Availment")
+                                    then
+                                        ApplyDetailedGSTLedgerEntry."Fluctuation Amt. Credit" := true;
+
+                                    ApplyDetailedGSTLedgerEntryNew.Insert(true);
+                                    CreateDetailedGSTApplicationEntryInfo(ApplyDetailedGSTLedgerEntryNew, DetailedGSTLedgerEntry, PaymentDocNo, false);
+                                    FillGSTPostingBufferWithApplication(ApplyDetailedGSTLedgerEntryNew, true, HigherInvoiceExchangeRate);
+                                end;
                             end;
 
                             GSTApplicationLibrary.GetApplicationDocTypeFromGSTDocumentType(DetailedGSTLedgerEntry."Application Doc. Type", ApplyDetailedGSTLedgerEntry."Document Type");
@@ -2394,18 +2435,19 @@ codeunit 18430 "GST Application Handler"
     var
         Customer: Record Customer;
         Vendor: Record Vendor;
+        VendLedgEntry: Record "Vendor Ledger Entry";
         AppliedForeignCurrAmt: Decimal;
         VendNo: Code[20];
         CustNo: Code[20];
         AppliedAmt: Decimal;
         AppliedAmtLCY: Decimal;
     begin
-        if Customer.Get(NewCVLedgEntryBuf."CV No.") then begin
+        if Customer.Get(NewCVLedgEntryBuf."CV No.") and (GenJnlLine."Account Type" = GenJnlLine."Account Type"::Customer) then begin
             SetGSTApplicationSourceSales(NewCVLedgEntryBuf, GenJnlLine, Customer);
             GSTApplSessionMgt.GetGSTTransactionType(GSTTransactionType);
         end
         else
-            if Vendor.Get(NewCVLedgEntryBuf."CV No.") then begin
+            if Vendor.Get(NewCVLedgEntryBuf."CV No.") and (GenJnlLine."Account Type" = GenJnlLine."Account Type"::Vendor) then begin
                 SetGSTApplicationSourcePurch(NewCVLedgEntryBuf, GenJnlLine, Vendor);
                 GSTApplSessionMgt.GetGSTTransactionType(GSTTransactionType);
             end;
@@ -2420,7 +2462,11 @@ codeunit 18430 "GST Application Handler"
                         if GenJnlLine."Document Type" in [GenJnlLine."Document Type"::Invoice, GenJnlLine."Document Type"::Payment] then
                             if OldCVLedgEntryBuf."Currency Code" <> '' then begin
                                 if (NewCVLedgEntryBuf."Original Currency Factor" > OldCVLedgEntryBuf."Original Currency Factor") or (NewCVLedgEntryBuf."Original Currency Factor" < OldCVLedgEntryBuf."Original Currency Factor") then begin
-                                    AppliedForeignCurrAmt := Round(AppliedAmt / NewCVLedgEntryBuf."Adjusted Currency Factor");
+                                    VendLedgEntry.Get(OldCVLedgEntryBuf."Entry No.");
+                                    if VendLedgEntry."GST Reverse Charge" then
+                                        AppliedForeignCurrAmt := Round(AppliedAmt / OldCVLedgEntryBuf."Adjusted Currency Factor")
+                                    else
+                                        AppliedForeignCurrAmt := Round(AppliedAmt / NewCVLedgEntryBuf."Adjusted Currency Factor");
                                     PostGSTPurchaseApplication(GenJnlLine, NewCVLedgEntryBuf, OldCVLedgEntryBuf, AppliedForeignCurrAmt);
                                 end else
                                     PostGSTPurchaseApplication(GenJnlLine, NewCVLedgEntryBuf, OldCVLedgEntryBuf, AppliedAmtLCY);
@@ -3051,6 +3097,11 @@ codeunit 18430 "GST Application Handler"
 
     [IntegrationEvent(false, false)]
     local procedure OnBeforePostGSTWithNormalPaymentOnline(var GenJournalLine: Record "Gen. Journal Line"; var AmountToApply: Decimal; var IsHandled: Boolean)
+    begin
+    end;
+
+    [IntegrationEvent(false, false)]
+    local procedure OnBeforePostGSTWithNormalPaymentOffline(var GenJournalLine: Record "Gen. Journal Line"; var AmountToApply: Decimal; var IsHandled: Boolean)
     begin
     end;
 }

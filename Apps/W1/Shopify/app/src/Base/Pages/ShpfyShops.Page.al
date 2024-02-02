@@ -1,3 +1,5 @@
+namespace Microsoft.Integration.Shopify;
+
 /// <summary>
 /// Page Shpfy Shops (ID 30102).
 /// </summary>
@@ -40,4 +42,11 @@ page 30102 "Shpfy Shops"
             }
         }
     }
+
+    trigger OnOpenPage()
+    var
+        UpgradeMgt: Codeunit "Shpfy Upgrade Mgt.";
+    begin
+        UpgradeMgt.SetB2BEnabled();
+    end;
 }

@@ -1,3 +1,5 @@
+namespace Microsoft.DataMigration.GP;
+
 permissionset 4031 "HybridGP - Edit"
 {
     Assignable = false;
@@ -47,13 +49,7 @@ permissionset 4031 "HybridGP - Edit"
                     tabledata "GPSOPTrxHist" = IMD,
                     tabledata "GPSOPUserDefinedWorkHist" = IMD,
                     tabledata "GPSOPWorkflowWorkHist" = IMD,
-#if not CLEAN21
-#pragma warning disable AL0432
-#endif
                     tabledata "GPForecastTemp" = IMD,
-#if not CLEAN21
-#pragma warning restore AL0432
-#endif
 #if not CLEAN22
 #pragma warning disable AL0432
                     tabledata "GP POPPOHeader" = IMD,
@@ -116,5 +112,11 @@ permissionset 4031 "HybridGP - Edit"
                     tabledata "GP POP10100" = IMD,
                     tabledata "GP POP10110" = IMD,
                     tabledata "GP PM00204" = IMD,
-                    tabledata "GP Known Countries" = IMD;
+                    tabledata "GP Upgrade Settings" = IMD,
+                    tabledata "GP Migration Error Overview" = IMD,
+                    tabledata "GP Known Countries" = IMD,
+                    tabledata "GP PM10200" = IMD,
+                    tabledata "GP PM30300" = IMD,
+                    tabledata "GP RM20201" = IMD,
+                    tabledata "GP RM30201" = IMD;
 }
